@@ -113,10 +113,14 @@ public class SmtpOutputOperatorTest
     node.setRecipients(recipients);
     node.setSubject("hello");
     node.setup(testMeta.context);
+    //node.activate(testMeta.context);
     node.beginWindow(1000);
     String data = "First test message";
     node.input.process(data);
     node.endWindow();
+    //Thread.sleep(1000);
+    node.teardown();
+
     Assert.assertTrue(greenMail.waitForIncomingEmail(5000, 1));
     MimeMessage[] messages = greenMail.getReceivedMessages();
     Assert.assertEquals(3, messages.length);
@@ -128,7 +132,6 @@ public class SmtpOutputOperatorTest
     Assert.assertEquals(to, messages[0].getRecipients(Message.RecipientType.TO)[0].toString());
     Assert.assertEquals(cc, messages[0].getRecipients(Message.RecipientType.TO)[1].toString());
     Assert.assertEquals(cc, messages[0].getRecipients(Message.RecipientType.CC)[0].toString());
-    node.teardown();
   }
 
   @Test
@@ -138,9 +141,15 @@ public class SmtpOutputOperatorTest
     recipients.put("to", to);
     node.setRecipients(recipients);
     node.setup(testMeta.context);
+    node.activate(testMeta.context);
     node.beginWindow(0);
+    String data = "First test message";
     node.input.process(data);
+    Thread.sleep(500);
+    node.handleIdleTime();
     node.endWindow();
+    Thread.sleep(1000);
+    node.teardown();
     Assert.assertTrue(greenMail.waitForIncomingEmail(10000, 1));
     MimeMessage[] messages = greenMail.getReceivedMessages();
     Assert.assertEquals(1, messages.length);
@@ -150,7 +159,6 @@ public class SmtpOutputOperatorTest
     Assert.assertTrue(expectedContent.equals(receivedContent));
     Assert.assertEquals(from, ((InternetAddress)messages[0].getFrom()[0]).getAddress());
     Assert.assertEquals(to, messages[0].getAllRecipients()[0].toString());
-    node.teardown();
   }
 
   @Test
@@ -194,14 +202,20 @@ public class SmtpOutputOperatorTest
 
     recipients.put("to", to);
     node.setup(testMeta.context);
-
+    node.activate(testMeta.context);
     node.setRecipients(recipients);
     node.setSubject("hello");
     for (long wid = 0; wid < 10; wid++) {
+      if(wid%2 == 0){
+        Thread.sleep(500);
+        node.handleIdleTime();
+      }
+
       if (wid == 8) {
         SmtpIdempotentOutputOperator newOp = TestUtils.clone(new Kryo(), node);
         node.teardown();
         newOp.setup(testMeta.context);
+        newOp.activate(testMeta.context);
         newOp.beginWindow(5);
         String inputTest = 5 + "test message";
         newOp.input.process(inputTest);
@@ -216,7 +230,8 @@ public class SmtpOutputOperatorTest
         inputTest = 7 + "test message";
         newOp.input.process(inputTest);
         newOp.endWindow();
-
+        Thread.sleep(500);
+        newOp.handleIdleTime();
         newOp.beginWindow(8);
         inputTest = 8 + "test message";
         newOp.input.process(inputTest);

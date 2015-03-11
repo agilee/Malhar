@@ -22,7 +22,6 @@ import com.datatorrent.api.Context.OperatorContext;
 import com.datatorrent.api.Operator;
 import com.datatorrent.common.util.DTThrowable;
 import com.datatorrent.lib.io.IdempotentStorageManager;
-import com.google.common.collect.Lists;
 
 import java.util.*;
 
@@ -80,19 +79,12 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
        */
       String message;
       while ((message = messagesSent.poll()) != null) {
-        waiting.remove(message);
-
-      }
-    }
-  }
-
-  @Override
-  public void activate(OperatorContext context)
-  {
-    if (waiting.size() > 0) {
-      Iterator<String> itr = waiting.iterator();
-      while (itr.hasNext()) {
-        smtpSenderThread.messageRcvdQueue.add(itr.next());
+        ArrayList<String> messages = waiting.get(currentWindowId);
+        messages.remove(message);
+        if(messages.size()!=0)
+        waiting.put(currentWindowId, messages);
+        else
+        waiting.remove(currentWindowId);
       }
     }
   }
@@ -131,20 +123,18 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
   protected transient Authenticator auth;
   protected transient Session session;
   protected transient Message message;
-  protected transient Long windowIdMessageSent;
-  protected Map<Long, Integer> mapWindowMessageCount = new HashMap<Long, Integer>();
-  protected int countMessagesToBeSkipped;
+  protected transient Map<Long, Integer> mapWindowMessageCount = new HashMap<Long, Integer>();
   private final transient AtomicReference<Throwable> throwable;
   protected IdempotentStorageManager idempotentStorageManager = new IdempotentStorageManager.FSIdempotentStorageManager();
-  private List<String> waiting;
+  private Map<Long, ArrayList<String>> waiting;
   protected transient long currentWindowId;
   protected int operatorId;
-  private int countOfTuples;
+  private transient long largestRecoveryWindow;
 
   public SmtpIdempotentOutputOperator()
   {
     throwable = new AtomicReference<Throwable>();
-    waiting = Lists.newArrayList();
+    waiting = new HashMap<Long, ArrayList<String>>();
     messagesSent = new LinkedBlockingQueue<String>();
 
   }
@@ -157,17 +147,37 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
     idempotentStorageManager.setup(context);
     sleepTimeMillis = context.getValue(Context.OperatorContext.SPIN_MILLIS);
     smtpSenderThread = new SMTPSenderThread();
+    largestRecoveryWindow = idempotentStorageManager.getLargestRecoveryWindow();
     reset();
+  }
+
+  @Override
+  public void activate(OperatorContext context)
+  {
+    Object[] windowIds = waiting.keySet().toArray();
+    for(int i=0;i<waiting.size();i++) {
+      Long windowId = (Long)windowIds[i];
+      LOG.debug("window Id is {}",windowId);
+      if (windowId < largestRecoveryWindow) {
+        waiting.remove(windowId);
+      }
+      if (windowId == largestRecoveryWindow) {
+        int countMessagesToBeSkipped = restore(windowId);
+        ArrayList<String> messagesToCheck = waiting.get(windowId);
+        for (i = 0; i < countMessagesToBeSkipped; i++) {
+          messagesToCheck.remove(i);
+        }
+        waiting.put(windowId, messagesToCheck);
+        for(i=0;i<messagesToCheck.size();i++)
+        smtpSenderThread.messageRcvdQueue.add(messagesToCheck.get(i));
+      }
+    }
   }
 
   @Override
   public void beginWindow(long windowId)
   {
-    countOfTuples = 0;
     currentWindowId = windowId;
-    if (windowId <= idempotentStorageManager.getLargestRecoveryWindow()) {
-      replay(windowId);
-    }
   }
 
   protected void completed(String message)
@@ -184,6 +194,7 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
       smtpSenderThread.stopService();
     }
     catch (IOException ex) {
+      throw new RuntimeException(ex);
     }
 
     super.teardown();
@@ -209,14 +220,8 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
     @Override
     public void process(Object t)
     {
-      if (currentWindowId <= idempotentStorageManager.getLargestRecoveryWindow()) {
-        countOfTuples++;
-        if (countOfTuples <= countMessagesToBeSkipped) {
-          return;
-        }
-        else {
-          processMessage(t.toString());
-        }
+      if (currentWindowId <= largestRecoveryWindow) {
+        return;
       }
       else {
         processMessage(t.toString());
@@ -227,9 +232,17 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
 
   public void processMessage(String t)
   {
+    ArrayList<String> messages = new ArrayList<String>();
     String mailContent = content.replace("{}", t);
     LOG.debug("Sending email for tuple {}", t);
-    waiting.add(mailContent);
+    if (waiting.containsKey(currentWindowId)) {
+      messages.add(mailContent);
+    }
+    else {
+      messages = new ArrayList<String>();
+      messages.add(mailContent);
+    }
+    waiting.put(currentWindowId, messages);
     smtpSenderThread.messageRcvdQueue.add(mailContent);
   }
 
@@ -447,8 +460,9 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
     }
   }
 
-  protected void replay(long windowId)
+  protected int restore(long windowId)
   {
+    int countMessagesToBeSkipped = 0;
     try {
       Map<Integer, Object> recoveryDataPerOperator = idempotentStorageManager.load(windowId);
 
@@ -465,6 +479,7 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
     catch (IOException ex) {
       throw new RuntimeException("replay", ex);
     }
+    return countMessagesToBeSkipped;
   }
 
   /**
@@ -523,16 +538,15 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
             running = false;
             throwable.set(ex);
           }
-          windowIdMessageSent = currentWindowId;
-          if (windowSentQueue.contains(windowIdMessageSent)) {
+          if (windowSentQueue.contains(currentWindowId)) {
             countMessageSent++;
           }
           else {
             countMessageSent = 1;
-            windowSentQueue.add(windowIdMessageSent);
+            windowSentQueue.add(currentWindowId);
           }
           synchronized (this) {
-            mapWindowMessageCount.put(windowIdMessageSent, countMessageSent);
+            mapWindowMessageCount.put(currentWindowId, countMessageSent);
           }
           LOG.debug("message is {}", message);
           completed(mailContent);
