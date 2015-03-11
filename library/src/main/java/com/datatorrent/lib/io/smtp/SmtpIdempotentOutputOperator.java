@@ -81,7 +81,7 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
       while ((message = messagesSent.poll()) != null) {
         ArrayList<String> messages = waiting.get(currentWindowId);
         messages.remove(message);
-        if(messages.size()!=0)
+        if(!messages.isEmpty())
         waiting.put(currentWindowId, messages);
         else
         waiting.remove(currentWindowId);

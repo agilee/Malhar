@@ -61,7 +61,7 @@ public class SmtpOutputOperatorTest
   {
     public String dir = null;
     Context.OperatorContext context;
-
+    IdempotentStorageManager.FSIdempotentStorageManager manager = new IdempotentStorageManager.FSIdempotentStorageManager();
     @Override
     protected void starting(org.junit.runner.Description description)
     {
@@ -82,6 +82,10 @@ public class SmtpOutputOperatorTest
       node.setSmtpPassword("<password>");
       data = new HashMap<String, String>();
       data.put("alertkey", "alertvalue");
+
+    manager.setRecoveryPath(testMeta.dir + "/recovery");
+    manager.setup(testMeta.context);
+    node.setIdempotentStorageManager(manager);
 
     }
 
@@ -113,12 +117,10 @@ public class SmtpOutputOperatorTest
     node.setRecipients(recipients);
     node.setSubject("hello");
     node.setup(testMeta.context);
-    //node.activate(testMeta.context);
     node.beginWindow(1000);
     String data = "First test message";
     node.input.process(data);
     node.endWindow();
-    //Thread.sleep(1000);
     node.teardown();
 
     Assert.assertTrue(greenMail.waitForIncomingEmail(5000, 1));
@@ -145,10 +147,7 @@ public class SmtpOutputOperatorTest
     node.beginWindow(0);
     String data = "First test message";
     node.input.process(data);
-    Thread.sleep(500);
-    node.handleIdleTime();
     node.endWindow();
-    Thread.sleep(1000);
     node.teardown();
     Assert.assertTrue(greenMail.waitForIncomingEmail(10000, 1));
     MimeMessage[] messages = greenMail.getReceivedMessages();
@@ -194,10 +193,6 @@ public class SmtpOutputOperatorTest
   @Test
   public void testIdempotency() throws Exception
   {
-    IdempotentStorageManager.FSIdempotentStorageManager manager = new IdempotentStorageManager.FSIdempotentStorageManager();
-    manager.setRecoveryPath(testMeta.dir + "/recovery");
-    manager.setup(testMeta.context);
-    node.setIdempotentStorageManager(manager);
     Map<String, String> recipients = Maps.newHashMap();
 
     recipients.put("to", to);
