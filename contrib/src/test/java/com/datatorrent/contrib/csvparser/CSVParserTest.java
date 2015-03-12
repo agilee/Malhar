@@ -13,15 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datatorrent.demos.dimensions.generic;
+package com.datatorrent.contrib.csvparser;
 
 import com.datatorrent.common.util.DTThrowable;
-import com.datatorrent.contrib.parser.AbstractCsvParser.Field;
+import com.datatorrent.contrib.csvparser.AbstractCsvParser.Field;
 import com.datatorrent.lib.testbench.CollectorTestSink;
 import com.datatorrent.lib.util.TestUtils.TestInfo;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Map;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -33,6 +34,10 @@ import org.junit.Test;
 import org.junit.runner.Description;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.supercsv.cellprocessor.ift.CellProcessor;
+import org.supercsv.io.CsvMapReader;
+import org.supercsv.io.ICsvMapReader;
+import org.supercsv.prefs.CsvPreference;
 
 public class CSVParserTest
 {
@@ -50,11 +55,12 @@ public class CSVParserTest
     }
 
     @Override
-     protected void finished(Description description)
-     {
-     super.finished(description);
-     FileUtils.deleteQuietly(new File(getDir()));
-     }
+    protected void finished(Description description)
+    {
+      super.finished(description);
+      FileUtils.deleteQuietly(new File(getDir()));
+    }
+
   }
 
   @Test
@@ -191,5 +197,45 @@ public class CSVParserTest
     }
     logger.debug("Written data to HDFS file.");
   }
+
+  public class CsvToMapParser extends AbstractCsvParser<Map<String, Object>>
+  {
+    protected transient ICsvMapReader csvReader = null;
+
+    /**
+     * This method creates an instance of csvMapReader.
+     *
+     * @param reader
+     * @param preference
+     * @return CSV Map Reader
+     */
+    @Override
+    public ICsvMapReader getReader(ReusableStringReader reader, CsvPreference preference)
+    {
+      csvReader = new CsvMapReader(reader, preference);
+      return csvReader;
+    }
+
+    /**
+     * This method reads input stream data values into a map.
+     *
+     * @return Map containing key as field name given by user and value of the field.
+     */
+    @Override
+    public Map<String, Object> readData(String[] properties, CellProcessor[] processors)
+    {
+      Map<String, Object> fieldValueMapping = null;
+      try {
+        fieldValueMapping = csvReader.read(properties, processors);
+      }
+      catch (IOException ex) {
+        DTThrowable.rethrow(ex);
+      }
+      return fieldValueMapping;
+
+    }
+
+  }
+
   private static final Logger logger = LoggerFactory.getLogger(CSVParserTest.class);
 }

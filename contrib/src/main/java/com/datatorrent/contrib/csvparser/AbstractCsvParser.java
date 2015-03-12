@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datatorrent.contrib.parser;
+package com.datatorrent.contrib.csvparser;
 
 import java.util.ArrayList;
 
@@ -52,7 +52,7 @@ import org.supercsv.io.*;
 public abstract class AbstractCsvParser<T> extends BaseOperator
 {
   // List of key value pairs which has name of the field as key , data type of the field as value.
-  protected ArrayList<Field> fields;
+  private ArrayList<Field> fields;
 
   protected String inputEncoding;
   @NotNull
@@ -141,21 +141,20 @@ public abstract class AbstractCsvParser<T> extends BaseOperator
       try {
         FileSystem fs = FileSystem.get(conf);
         Path filepath = new Path(fieldmappingFile);
-        if(fs.exists(filepath)){
-        BufferedReader bfr = new BufferedReader(new InputStreamReader(fs.open(filepath)));
-        String str;
+        if (fs.exists(filepath)) {
+          BufferedReader bfr = new BufferedReader(new InputStreamReader(fs.open(filepath)));
+          String str;
 
-        while ((str = bfr.readLine()) != null) {
-          logger.debug("string is {}", str);
-          String[] temp = str.split(fieldmappingFileDelimiter);
-          Field field = new Field();
-          field.setName(temp[0]);
-          field.setType(temp[1]);
-          fields.add(field);
+          while ((str = bfr.readLine()) != null) {
+            logger.debug("string is {}", str);
+            String[] temp = str.split(fieldmappingFileDelimiter);
+            Field field = new Field();
+            field.setName(temp[0]);
+            field.setType(temp[1]);
+            getFields().add(field);
+          }
         }
-      }
-      else
-        {
+        else {
           logger.debug("File containing fields and their data types does not exist.Please specify the fields and data type through properties of this operator.");
         }
       }
@@ -165,21 +164,21 @@ public abstract class AbstractCsvParser<T> extends BaseOperator
 
     }
 
-      int countKeyValue = fields.size();
-      properties = new String[countKeyValue];
-      processors = new CellProcessor[countKeyValue];
-      initialise(properties, processors);
-      CsvPreference preference = new CsvPreference.Builder('"', fieldDelimiter, lineDelimiter).build();
-      csvReader = getReader(csvStringReader, preference);
+    int countKeyValue = getFields().size();
+    properties = new String[countKeyValue];
+    processors = new CellProcessor[countKeyValue];
+    initialise(properties, processors);
+    CsvPreference preference = new CsvPreference.Builder('"', fieldDelimiter, lineDelimiter).build();
+    csvReader = getReader(csvStringReader, preference);
 
   }
 
   // Initialise the properties and processors.
   public void initialise(String[] properties, CellProcessor[] processors)
   {
-    for (int i = 0; i < fields.size(); i++) {
-      FIELD_TYPE type = fields.get(i).type;
-      properties[i] = fields.get(i).name;
+    for (int i = 0; i < getFields().size(); i++) {
+      FIELD_TYPE type = getFields().get(i).type;
+      properties[i] = getFields().get(i).name;
       if (type == FIELD_TYPE.DOUBLE) {
         processors[i] = new Optional(new ParseDouble());
       }
@@ -343,75 +342,148 @@ public abstract class AbstractCsvParser<T> extends BaseOperator
 
   }
 
-  public void setType(FIELD_TYPE type)
-  {
-    this.type = type;
-  }
-
+  /**
+   * Gets the type of field.
+   *
+   * @param type
+   */
   public FIELD_TYPE getType()
   {
     return type;
   }
 
+  /**
+   * Sets the type of field.
+   *
+   * @param type
+   */
+  public void setType(FIELD_TYPE type)
+  {
+    this.type = type;
+  }
+
+  /**
+   * Gets the delimiter which separates lines in incoming data.
+   *
+   * @param lineDelimiter
+   */
   public String getLineDelimiter()
   {
     return lineDelimiter;
   }
 
+  /**
+   * Sets the delimiter which separates lines in incoming data.
+   *
+   * @param lineDelimiter
+   */
   public void setLineDelimiter(String lineDelimiter)
   {
     this.lineDelimiter = lineDelimiter;
   }
 
+  /**
+   * Gets the delimiter which separates fields in incoming data.
+   *
+   * @param fieldDelimiter
+   */
   public int getFieldDelimiter()
   {
     return fieldDelimiter;
   }
 
+  /**
+   * Sets the delimiter which separates fields in incoming data.
+   *
+   * @param fieldDelimiter
+   */
   public void setFieldDelimiter(int fieldDelimiter)
   {
     this.fieldDelimiter = fieldDelimiter;
   }
 
+  /**
+   * Gets the option if incoming data has header or not.
+   *
+   * @return isHeader
+   */
   public boolean isIsHeader()
   {
     return isHeader;
   }
 
+  /**
+   * Sets the option if incoming data has header or not.
+   *
+   * @param isHeader
+   */
   public void setIsHeader(boolean isHeader)
   {
     this.isHeader = isHeader;
   }
 
+  /**
+   * Gets the arraylist of the fields, a field being a POJO containing
+   * the name of the field and type of field.
+   *
+   * @return An arraylist of Fields.
+   */
   public ArrayList<Field> getFields()
   {
     return fields;
   }
 
+  /**
+   * Sets the arraylist of the fields, a field being a POJO containing
+   * the name of the field and type of field.
+   *
+   * @param fields An arraylist of Fields.
+   */
   public void setFields(ArrayList<Field> fields)
   {
     this.fields = fields;
   }
 
+  /**
+   * Gets the path of the file which contains mapping of field names to data type.
+   *
+   * @return Path
+   */
   public String getFieldmappingFile()
   {
     return fieldmappingFile;
   }
 
+  /**
+   * Sets the path of the file which contains mapping of field names to data type.
+   *
+   * @param fieldmappingFile The path where fieldmappingFile is created.
+   */
   public void setFieldmappingFile(String fieldmappingFile)
   {
     this.fieldmappingFile = fieldmappingFile;
   }
 
+  /**
+   * Gets the delimiter which separates field name and data type in input file.
+   *
+   * @return fieldmappingFileDelimiter
+   */
   public String getFieldmappingFileDelimiter()
   {
     return fieldmappingFileDelimiter;
   }
 
+  /**
+   * Sets the delimiter which separates field name and data type in input file.
+   *
+   * @param fieldmappingFileDelimiter
+   */
   public void setFieldmappingFileDelimiter(String fieldmappingFileDelimiter)
   {
     this.fieldmappingFileDelimiter = fieldmappingFileDelimiter;
   }
+
   private static final Logger logger = LoggerFactory.getLogger(AbstractCsvParser.class);
 
 }

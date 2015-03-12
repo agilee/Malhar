@@ -98,6 +98,19 @@ import org.apache.hadoop.fs.Path;
  }
  </pre>
  *
+ * Filepath value to Fieldmapping file must be provided by user
+ *
+ <pre>
+ {@code
+
+ <property>
+ <name>dt.application.GenericDimensionsWithCsvMapParser.operator.Parser.fieldmappingFile</name>
+ <value></value>
+ </property>
+ <property>
+ }
+ </pre>
+ *
  * @since 2.0.0
  */
 @ApplicationAnnotation(name="GenericDimensionsWithCsvMapParser")

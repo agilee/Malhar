@@ -97,8 +97,4 @@
     <name>dt.application.GenericDimensionsWithCsvMapParser.operator.Parser.fieldmappingFile</name>
     <value></value>
   </property>
-  <property>
-    <name>dt.application.CsvParserFileMappingInputApplication.operator.CsvParser.fieldmappingFile</name>
-    <value></value>
-  </property>
 </configuration>
