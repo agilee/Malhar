@@ -15,7 +15,7 @@
  */
 package com.datatorrent.demos.dimensions.generic;
 
-import com.datatorrent.contrib.csvparser.AbstractCsvParser;
+import com.datatorrent.contrib.parser.AbstractCsvParser;
 import com.datatorrent.common.util.DTThrowable;
 import java.io.IOException;
 import java.util.Map;

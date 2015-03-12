@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.datatorrent.contrib.csvparser;
+package com.datatorrent.contrib.parser;
 
 import com.datatorrent.common.util.DTThrowable;
-import com.datatorrent.contrib.csvparser.AbstractCsvParser.Field;
+import com.datatorrent.contrib.parser.AbstractCsvParser.Field;
 import com.datatorrent.lib.testbench.CollectorTestSink;
 import com.datatorrent.lib.util.TestUtils.TestInfo;
 import java.io.File;
@@ -198,7 +198,7 @@ public class CSVParserTest
     logger.debug("Written data to HDFS file.");
   }
 
-  public class CsvToMapParser extends AbstractCsvParser<Map<String, Object>>
+  private class CsvToMapParser extends AbstractCsvParser<Map<String, Object>>
   {
     protected transient ICsvMapReader csvReader = null;
 

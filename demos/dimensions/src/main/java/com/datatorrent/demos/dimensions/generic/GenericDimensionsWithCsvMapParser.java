@@ -29,88 +29,13 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 /**
- * DimensionsDemo run with CsvToMapParser
+ * DimensionsDemo run with CsvToMapParser.
  *
- * Following settings are provided with properties.xml set by default, but can be modified in local dt-site.xml
- <pre>
- {@code
-
- <property>
- <name>dt.application.GenericDimensionsApplication.operator.*.attr.MEMORY_MB</name>
- <value>8192</value>
- </property>
- <property>
- <name>dt.application.GenericDimensionsApplication.port.*.attr.QUEUE_CAPACITY</name>
- <value>32000</value>
- </property>
- <property>
- <name>dt.application.GenericDimensionsApplication.operator.InputGenerator.attr.PARTITIONER</name>
- <value>com.datatorrent.lib.partitioner.StatelessPartitioner:2</value>
- </property>
- <property>
- <name>dt.application.GenericDimensionsApplication.operator.InputGenerator.maxTuplesPerWindow</name>
- <value>40000</value>
- </property>
- <property>
- <name>dt.application.GenericDimensionsApplication.operator.DimensionsComputation.attr.APPLICATION_WINDOW_COUNT</name>
- <value>4</value>
- </property>
- <property>
- <name>dt.application.GenericDimensionsApplication.operator.DimensionsStore.attr.PARTITIONER</name>
- <value>com.datatorrent.lib.partitioner.StatelessPartitioner:4</value>
- </property>
- <property>
- <name>dt.application.GenericDimensionsApplication.operator.DimensionsStore.fileStore.basePath</name>
- <value>GenericDimensionsApplication</value>
- </property>
- <property>
- <name>dt.application.GenericDimensionsApplication.operator.DimensionsStore.prop.maxCacheSize</name>
- <value>5</value>
- </property>
- <property>
- <name>dt.application.GenericDimensionsApplication.operator.Query.topic</name>
- <value>GenericDimensionsQuery</value>
- </property>
- <property>
- <name>dt.application.GenericDimensionsApplication.operator.QueryResult.topic</name>
- <value>GenericDimensionsQueryResult</value>
- </property>
- }
- </pre>
- *
- *
- *
- * Following settings should be provided by user and modified to reflect local Kafka settings
- *
- *
- <pre>
- {@code
-
- <property>
- <name>dt.operator.Query.brokerSet</name>
- <value>localhost:9092</value>
- </property>
- <property>
- <name>dt.operator.QueryResult.prop.configProperties(metadata.broker.list)</name>
- <value>localhost:9092</value>
- </property>
-
- }
- </pre>
- *
- * Filepath value to Fieldmapping file must be provided by user
- *
- <pre>
- {@code
-
- <property>
- <name>dt.application.GenericDimensionsWithCsvMapParser.operator.Parser.fieldmappingFile</name>
- <value></value>
- </property>
- <property>
- }
- </pre>
- *
+ * Default settings for this application are provided in properties.xml, but can be modified in local dt-site.xml
+ * Kafka settings should be provided by user and modified to reflect local Kafka settings
+ * CsvToMapParser settings are provided in properties-GenericDimensionsWithCsvMapParser.xml
+ * Filepath value to Fieldmapping file must be provided by user.
+ * 
  * @since 2.0.0
  */
 @ApplicationAnnotation(name="GenericDimensionsWithCsvMapParser")

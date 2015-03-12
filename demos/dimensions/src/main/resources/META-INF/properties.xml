@@ -92,9 +92,4 @@
     <value>#/ops/apps/{appId}/appdata</value>
   </property>
 
-<!--FieldMappingFile for CsvParserApplication-->
-  <property>
-    <name>dt.application.GenericDimensionsWithCsvMapParser.operator.Parser.fieldmappingFile</name>
-    <value></value>
-  </property>
 </configuration>
