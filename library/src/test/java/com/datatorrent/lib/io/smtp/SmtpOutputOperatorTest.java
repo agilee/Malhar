@@ -201,18 +201,23 @@ public class SmtpOutputOperatorTest
     node.setRecipients(recipients);
     node.setSubject("hello");
     for (long wid = 0; wid < 10; wid++) {
-      if(wid%2 == 0){
+      if(wid == 2){
         Thread.sleep(500);
         node.handleIdleTime();
       }
-
-      if (wid == 8) {
+      Thread.sleep(1000);
+      if (wid == 7) {
         SmtpIdempotentOutputOperator newOp = TestUtils.clone(new Kryo(), node);
         node.teardown();
         newOp.setup(testMeta.context);
         newOp.activate(testMeta.context);
+        newOp.beginWindow(4);
+        String inputTest = 4 + "test message";
+        newOp.input.process(inputTest);
+        newOp.endWindow();
+        Thread.sleep(1000);
         newOp.beginWindow(5);
-        String inputTest = 5 + "test message";
+        inputTest = 5 + "test message";
         newOp.input.process(inputTest);
         newOp.endWindow();
 
@@ -225,15 +230,9 @@ public class SmtpOutputOperatorTest
         inputTest = 7 + "test message";
         newOp.input.process(inputTest);
         newOp.endWindow();
-        Thread.sleep(500);
-        newOp.handleIdleTime();
+
         newOp.beginWindow(8);
         inputTest = 8 + "test message";
-        newOp.input.process(inputTest);
-        newOp.endWindow();
-
-        newOp.beginWindow(9);
-        inputTest = 9 + "test message";
         newOp.input.process(inputTest);
         newOp.endWindow();
         Thread.sleep(1000);
@@ -243,12 +242,13 @@ public class SmtpOutputOperatorTest
       node.beginWindow(wid);
       String input = wid + "test message";
       node.input.process(input);
+      Thread.sleep(1000);
       node.endWindow();
     }
-    Assert.assertTrue(greenMail.waitForIncomingEmail(10000, 1));
+    Assert.assertTrue(greenMail.waitForIncomingEmail(5000, 1));
 
     MimeMessage[] messages = greenMail.getReceivedMessages();
-    Assert.assertEquals(10, messages.length);
+    Assert.assertEquals(9, messages.length);
     for (int i = 0; i < messages.length; i++) {
       String receivedContent = messages[i].getContent().toString().trim();
       logger.debug("received content is {}", receivedContent);
