@@ -117,12 +117,12 @@ public class SmtpOutputOperatorTest
     node.setRecipients(recipients);
     node.setSubject("hello");
     node.setup(testMeta.context);
-    node.beginWindow(1000);
+    node.beginWindow(0);
     String data = "First test message";
     node.input.process(data);
     node.endWindow();
     node.teardown();
-
+    Thread.sleep(500);
     Assert.assertTrue(greenMail.waitForIncomingEmail(5000, 1));
     MimeMessage[] messages = greenMail.getReceivedMessages();
     Assert.assertEquals(3, messages.length);
@@ -201,21 +201,13 @@ public class SmtpOutputOperatorTest
     node.setRecipients(recipients);
     node.setSubject("hello");
     for (long wid = 0; wid < 10; wid++) {
-      if(wid == 2){
+      if (wid == 8) {
         Thread.sleep(500);
-        node.handleIdleTime();
-      }
-      Thread.sleep(1000);
-      if (wid == 7) {
         SmtpIdempotentOutputOperator newOp = TestUtils.clone(new Kryo(), node);
         node.teardown();
         newOp.setup(testMeta.context);
         newOp.activate(testMeta.context);
-        newOp.beginWindow(4);
         String inputTest = 4 + "test message";
-        newOp.input.process(inputTest);
-        newOp.endWindow();
-        Thread.sleep(1000);
         newOp.beginWindow(5);
         inputTest = 5 + "test message";
         newOp.input.process(inputTest);
@@ -242,8 +234,8 @@ public class SmtpOutputOperatorTest
       node.beginWindow(wid);
       String input = wid + "test message";
       node.input.process(input);
-      Thread.sleep(1000);
       node.endWindow();
+      Thread.sleep(500);
     }
     Assert.assertTrue(greenMail.waitForIncomingEmail(5000, 1));
 
