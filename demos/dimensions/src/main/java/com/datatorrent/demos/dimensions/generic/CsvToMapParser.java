@@ -17,6 +17,7 @@ package com.datatorrent.demos.dimensions.generic;
 
 import com.datatorrent.contrib.parser.AbstractCsvParser;
 import com.datatorrent.common.util.DTThrowable;
+import com.datatorrent.lib.util.ReusableStringReader;
 import java.io.IOException;
 import java.util.Map;
 import org.supercsv.cellprocessor.ift.CellProcessor;
@@ -40,7 +41,7 @@ public class CsvToMapParser extends AbstractCsvParser<Map<String, Object>>
    * @return CSV Map Reader
    */
   @Override
-  public ICsvMapReader getReader(ReusableStringReader reader, CsvPreference preference)
+  protected ICsvMapReader getReader(ReusableStringReader reader, CsvPreference preference)
   {
     csvReader = new CsvMapReader(reader, preference);
     return csvReader;
@@ -51,7 +52,7 @@ public class CsvToMapParser extends AbstractCsvParser<Map<String, Object>>
    * @return Map containing key as field name given by user and value of the field.
    */
   @Override
-  public Map<String, Object> readData(String[] properties, CellProcessor[] processors)
+  protected Map<String, Object> readData(String[] properties, CellProcessor[] processors)
   {
     Map<String, Object> fieldValueMapping = null;
     try {

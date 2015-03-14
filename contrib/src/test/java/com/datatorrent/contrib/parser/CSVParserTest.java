@@ -18,6 +18,7 @@ package com.datatorrent.contrib.parser;
 import com.datatorrent.common.util.DTThrowable;
 import com.datatorrent.contrib.parser.AbstractCsvParser.Field;
 import com.datatorrent.lib.testbench.CollectorTestSink;
+import com.datatorrent.lib.util.ReusableStringReader;
 import com.datatorrent.lib.util.TestUtils.TestInfo;
 import java.io.File;
 import java.io.IOException;
@@ -210,7 +211,7 @@ public class CSVParserTest
      * @return CSV Map Reader
      */
     @Override
-    public ICsvMapReader getReader(ReusableStringReader reader, CsvPreference preference)
+    protected ICsvMapReader getReader(ReusableStringReader reader, CsvPreference preference)
     {
       csvReader = new CsvMapReader(reader, preference);
       return csvReader;
@@ -222,7 +223,7 @@ public class CSVParserTest
      * @return Map containing key as field name given by user and value of the field.
      */
     @Override
-    public Map<String, Object> readData(String[] properties, CellProcessor[] processors)
+    protected Map<String, Object> readData(String[] properties, CellProcessor[] processors)
     {
       Map<String, Object> fieldValueMapping = null;
       try {
