@@ -15,11 +15,7 @@
  */
 package com.datatorrent.lib.io.smtp;
 
-import com.datatorrent.api.*;
-import com.datatorrent.lib.helper.OperatorContextTestHelper;
-import com.datatorrent.lib.io.IdempotentStorageManager;
-import com.datatorrent.lib.util.TestUtils;
-import com.esotericsoftware.kryo.Kryo;
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -28,21 +24,28 @@ import javax.mail.Message;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 
-import org.apache.hadoop.conf.Configuration;
-import org.junit.Assert;
-import org.junit.Test;
-
+import com.esotericsoftware.kryo.Kryo;
 import com.google.common.collect.Maps;
 import com.icegreen.greenmail.util.GreenMail;
 import com.icegreen.greenmail.util.ServerSetup;
 import com.icegreen.greenmail.util.ServerSetupTest;
-import java.io.File;
-import org.apache.commons.io.FileUtils;
+
 import org.junit.*;
+import org.junit.Assert;
+import org.junit.Test;
 import org.junit.rules.TestWatcher;
 import org.junit.runner.Description;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.conf.Configuration;
+
+import com.datatorrent.lib.helper.OperatorContextTestHelper;
+import com.datatorrent.lib.io.IdempotentStorageManager;
+import com.datatorrent.lib.util.TestUtils;
+
+import com.datatorrent.api.*;
 
 public class SmtpOutputOperatorTest
 {
@@ -120,9 +123,10 @@ public class SmtpOutputOperatorTest
     node.beginWindow(0);
     String data = "First test message";
     node.input.process(data);
+    Thread.sleep(5000);
     node.endWindow();
     node.teardown();
-    Thread.sleep(500);
+    Thread.sleep(5000);
     Assert.assertTrue(greenMail.waitForIncomingEmail(5000, 1));
     MimeMessage[] messages = greenMail.getReceivedMessages();
     Assert.assertEquals(3, messages.length);
@@ -143,13 +147,13 @@ public class SmtpOutputOperatorTest
     recipients.put("to", to);
     node.setRecipients(recipients);
     node.setup(testMeta.context);
-    node.activate(testMeta.context);
     node.beginWindow(0);
     String data = "First test message";
     node.input.process(data);
     node.endWindow();
     node.teardown();
-    Assert.assertTrue(greenMail.waitForIncomingEmail(10000, 1));
+    Thread.sleep(500);
+    Assert.assertTrue(greenMail.waitForIncomingEmail(5000, 1));
     MimeMessage[] messages = greenMail.getReceivedMessages();
     Assert.assertEquals(1, messages.length);
     String receivedContent = messages[0].getContent().toString().trim();
@@ -197,29 +201,31 @@ public class SmtpOutputOperatorTest
 
     recipients.put("to", to);
     node.setup(testMeta.context);
-    node.activate(testMeta.context);
     node.setRecipients(recipients);
     node.setSubject("hello");
     for (long wid = 0; wid < 10; wid++) {
       if (wid == 8) {
-        Thread.sleep(500);
         SmtpIdempotentOutputOperator newOp = TestUtils.clone(new Kryo(), node);
         node.teardown();
         newOp.setup(testMeta.context);
-        newOp.activate(testMeta.context);
-        String inputTest = 4 + "test message";
         newOp.beginWindow(5);
-        inputTest = 5 + "test message";
+        String inputTest = 5 + "test message";
+        newOp.input.process(inputTest);
+        inputTest = "hello"+"test message";
         newOp.input.process(inputTest);
         newOp.endWindow();
 
         newOp.beginWindow(6);
         inputTest = 6 + "test message";
         newOp.input.process(inputTest);
+        inputTest = "hello"+"test message";
+        newOp.input.process(inputTest);
         newOp.endWindow();
 
         newOp.beginWindow(7);
         inputTest = 7 + "test message";
+        newOp.input.process(inputTest);
+        inputTest = "hello"+"test message";
         newOp.input.process(inputTest);
         newOp.endWindow();
 
@@ -234,8 +240,12 @@ public class SmtpOutputOperatorTest
       node.beginWindow(wid);
       String input = wid + "test message";
       node.input.process(input);
+      if(wid == 5 || wid == 6 || wid == 7){
+      input = "hello"+"test message";
+       node.input.process(input);
+      }
       node.endWindow();
-      Thread.sleep(500);
+      Thread.sleep(5000);
     }
     Assert.assertTrue(greenMail.waitForIncomingEmail(5000, 1));
 

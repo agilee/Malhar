@@ -59,8 +59,6 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
   @Override
   public void checkpointed(long windowId)
   {
-    LOG.debug("waiting is {}", waiting);
-    LOG.debug("largestRecoveryWindow is {}", largestRecoveryWindow);
   }
 
   @Override
@@ -82,7 +80,7 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
 
   private Map<String, String> recipients = Maps.newHashMap();
 
-  private int smtpPort = 25000;
+  private int smtpPort = 689;
   private transient long sleepTimeMillis;
   @NotNull
   private String smtpHost;
@@ -99,7 +97,7 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
   protected transient Message message;
   private final transient AtomicReference<Throwable> throwable;
   protected IdempotentStorageManager idempotentStorageManager = new IdempotentStorageManager.FSIdempotentStorageManager();
-  protected Queue<String> waiting;
+  protected BlockingQueue<String> waiting;
   protected int countMessageSent;
   private int countMessagesToBeSkipped;
 
@@ -107,13 +105,14 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
   protected int operatorId;
   protected transient long largestRecoveryWindow;
   private int countOfTuples;
+  private Object sync;
 
   public SmtpIdempotentOutputOperator()
   {
     throwable = new AtomicReference<Throwable>();
     messagesSent = new LinkedList<String>();
-    waiting = new LinkedList<String>();
-
+    waiting = new LinkedBlockingQueue<String>();
+    sync = new Object();
   }
 
   @Override
@@ -124,6 +123,9 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
     idempotentStorageManager.setup(context);
     sleepTimeMillis = context.getValue(Context.OperatorContext.SPIN_MILLIS);
     smtpSenderThread = new SMTPSenderThread();
+    LOG.debug("waiting in setup are {}", waiting);
+    LOG.debug("count in setup is {}",countMessageSent);
+
     reset();
   }
 
@@ -132,7 +134,6 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
   {
   //  ArrayList<String> messagesToCheck = new ArrayList<String>();
     //  Object[] windowIds = waiting.keySet().toArray();
-    LOG.debug("waiting in activate are {}", waiting);
     /* for (int i = 0; i < waiting.size(); i++) {
      Long windowId = (Long)windowIds[i];
      /*if (windowId < largestRecoveryWindow) {
@@ -181,6 +182,9 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
   {
     countOfTuples = 0;
     largestRecoveryWindow = idempotentStorageManager.getLargestRecoveryWindow();
+    LOG.debug("largestRecoveryWindow is {}",largestRecoveryWindow);
+    LOG.debug("waiting in beginwindow are {}", waiting);
+    LOG.debug("count in beginwindow is {}",countMessageSent);
     currentWindowId = windowId;
     if (windowId <= largestRecoveryWindow) {
       countMessagesToBeSkipped = restore(windowId);
@@ -190,7 +194,7 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
 
   protected void completed(String sentMessage)
   {
-    messagesSent.remove(sentMessage);
+    messagesSent.add(sentMessage);
   }
 
   @Override
@@ -231,13 +235,17 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
       if (currentWindowId <= largestRecoveryWindow) {
         countOfTuples++;
         if (countOfTuples <= countMessagesToBeSkipped) {
+          LOG.debug("countoftuples is still <= countMessagesToBeSkipped");
           return;
         }
         else {
+                    LOG.debug("countoftuples is still > countMessagesToBeSkipped");
+
           processMessage(t.toString());
         }
       }
       else {
+        LOG.debug("normal process");
         processMessage(t.toString());
       }
     }
@@ -284,6 +292,7 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
           waiting.remove();
         }
       }
+      messagesSent.clear();
       /* if (waitingArray != null && !waitingArray.isEmpty()) {
        LOG.debug("Removing from waiting array");
        waitingArray.removeAll(sentArray);
@@ -496,7 +505,7 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
   {
     if (currentWindowId > idempotentStorageManager.getLargestRecoveryWindow()) {
       try {
-        synchronized (this) {
+        synchronized (sync) {
           idempotentStorageManager.save(countMessageSent, operatorId, currentWindowId);
           LOG.debug("idempotent manager saves count {}", countMessageSent);
         }
@@ -511,6 +520,8 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
         waiting.remove();
       }
     }
+    LOG.debug("waiting in end window {}",waiting);
+    messagesSent.clear();
     countMessageSent = 0;
   }
 
@@ -520,7 +531,7 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
       Map<Integer, Object> recoveryDataPerOperator = idempotentStorageManager.load(windowId);
       LOG.debug("recoveryDataPerOperator is {}", recoveryDataPerOperator);
       for (Object recovery: recoveryDataPerOperator.values()) {
-        LOG.debug("recoveryData is {}", recovery.toString());
+        LOG.debug("recoveryData is {}", recovery);
         countMessagesToBeSkipped = (Integer)recovery;
         LOG.debug("count of messages skipped {}", countMessagesToBeSkipped);
       }
@@ -574,8 +585,8 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
     public void run()
     {
       running = true;
-      String mailContent = null;
       while (running) {
+      String mailContent = waiting.poll();
       if (mailContent != null) {
          try {
             message.setContent(mailContent, contentType);
@@ -587,7 +598,7 @@ public class SmtpIdempotentOutputOperator extends BaseOperator implements Operat
           }
       LOG.debug("message is {}", message);
       completed(mailContent);
-      synchronized (this) {
+      synchronized (sync) {
         countMessageSent++;
         LOG.debug("countmessagesent in thread is {}", countMessageSent);
       }
