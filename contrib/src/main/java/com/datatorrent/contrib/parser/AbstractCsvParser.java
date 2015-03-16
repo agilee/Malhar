@@ -75,9 +75,6 @@ public abstract class AbstractCsvParser<T> extends BaseOperator
   };
 
   @NotNull
-  FIELD_TYPE type;
-
-  @NotNull
   private transient ReusableStringReader csvStringReader = new ReusableStringReader();
 
   public AbstractCsvParser()
@@ -87,7 +84,6 @@ public abstract class AbstractCsvParser<T> extends BaseOperator
     fieldmappingFileDelimiter = ":";
     inputEncoding = "UTF8";
     lineDelimiter = "\r\n";
-    type = FIELD_TYPE.STRING;
     isHeader = false;
   }
 
@@ -112,6 +108,7 @@ public abstract class AbstractCsvParser<T> extends BaseOperator
           int len = header.length;
           for (int i = 0; i < len; i++) {
             logger.debug("header is {}", header[i]);
+            @SuppressWarnings("unchecked")
             T headerData = (T)header[i];
             output.emit(headerData);
           }
@@ -234,10 +231,11 @@ public abstract class AbstractCsvParser<T> extends BaseOperator
 
   /**
    * Any concrete class derived from AbstractParser has to implement this method.
-   * It returns the specific data type in which field values are being read to.
+   * It returns the specific data structure in which field values are being read to.
    *
    * @param properties
    * @param processors
+   * @return Specific data structure in which field values are read to.
    */
   protected abstract T readData(String[] properties, CellProcessor[] processors);
 
@@ -269,29 +267,9 @@ public abstract class AbstractCsvParser<T> extends BaseOperator
   }
 
   /**
-   * Gets the type of field.
-   *
-   * @param type
-   */
-  public FIELD_TYPE getType()
-  {
-    return type;
-  }
-
-  /**
-   * Sets the type of field.
-   *
-   * @param type
-   */
-  public void setType(FIELD_TYPE type)
-  {
-    this.type = type;
-  }
-
-  /**
    * Gets the delimiter which separates lines in incoming data.
    *
-   * @param lineDelimiter
+   * @return lineDelimiter
    */
   public String getLineDelimiter()
   {
@@ -311,7 +289,7 @@ public abstract class AbstractCsvParser<T> extends BaseOperator
   /**
    * Gets the delimiter which separates fields in incoming data.
    *
-   * @param fieldDelimiter
+   * @return fieldDelimiter
    */
   public int getFieldDelimiter()
   {
